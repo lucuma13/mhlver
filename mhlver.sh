@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # mhlver - An MHL tool to verify them all
-readonly BASICMETA_VERSION="1.0"
+readonly MHLVER_VERSION="1.0"
+
+# Copyright (c) 2026 Luis Gómez Gutiérrez
 
 # Colours used
 readonly RED='\033[0;31m'
@@ -10,7 +12,7 @@ readonly RESET='\033[0m'
 #TODO: MHL 1.0 repeats errors twice --> filter out repeated lines (with 2>&1 | sort -u) while printing the right verification message ($? won't work)
 
 function show_help() {
-	echo "mhlver v$BASICMETA_VERSION. Find and verify source MHL files or directories"
+	echo "mhlver v$MHLVER_VERSION. Find and verify source MHL files or directories"
 	echo
 	echo "Usage: mhlver [options] <path>"
 	echo 
@@ -77,7 +79,7 @@ function verify_item() {
 }
 
 # Long-format flags
-[[ "$1" == "--version" ]] && { echo "$BASICMETA_VERSION"; exit 0; }
+[[ "$1" == "--version" ]] && { echo "$MHLVER_VERSION"; exit 0; }
 [[ "$1" == "--help" ]] && show_help
 
 # Short-format flags
