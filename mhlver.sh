@@ -4,6 +4,7 @@
 readonly MHLVER_VERSION="1.0"
 
 # Copyright (c) 2026 Luis Gómez Gutiérrez
+# Licensed under the MIT License
 
 # Colours used
 readonly RED='\033[0;31m'
