@@ -38,7 +38,7 @@ brew install mhlver
 | Option | Description |
 | :---: | :--- |
 | `-d` | Prepends a datestamp for reporting |
-| `-v` | Increase verbosity |
+| `-v` | Verbose |
 | `-h` | Show help message |
 | `--version` | Print version |
 
