@@ -1,6 +1,6 @@
 # mhlver
 
-`mhlver` is a streamlined CLI utility to find and verify Media Hash List files (MHL). It supports both traditional MHL and ASC-MHL 2.0.
+`mhlver` is a streamlined CLI utility to find and verify Media Hash List files (MHL). It provides unified support for both traditional MHL and ASC-MHL 2.0, and it also features a compliance validator for XML Schema Definition (XSD) on legacy workflows.
 
 #### 💻 Compatibility
 
@@ -9,10 +9,11 @@
 
 #### 🛠️ Dependencies
 
-`mhlver` relies on the following verification tools:
-
-* [MHL Tool](https://mediahashlist.org/mhl-tool/) v1.31 © 2022-2026 MediaArea.net SARL (MIT)
-* [ASC-MHL](https://pypi.org/project/ascmhl/) v1.2 © 2020-2026 Academy of Motion Picture Arts and Sciences (MIT)
+`mhlver` utilizes the following open-source components:
+* [Python](https://docs.python.org/3/license.html) 3.9+ © 2001-2026 Python Software Foundation (PSF)
+* [python-xxhash](https://github.com/ifduyue/python-xxhash) © 2014-2026 Yue Du (BSD-2-Clause)
+* [lxml](https://lxml.de/) © 2004-2026 Stefan Behnel, et al. (BSD-3-Clause)
+* [ASC-MHL](https://pypi.org/project/ascmhl/) 1.2 © 2022-2026 Academy of Motion Picture Arts and Sciences (MIT)
 
 #### 🚀 Installation
 
@@ -23,7 +24,7 @@
 
 2. Tap and install:
 ```
-brew tap lucuma13/homebrew-dit
+brew tap lucuma13/dit
 brew install mhlver
 ```
 
@@ -33,9 +34,10 @@ brew install mhlver
 
 | Option | Description |
 | :---: | :--- |
-| `-d` | Prepends a datestamp for reporting |
-| `-v` | Verbose |
-| `-h` | Show help message |
+| `-d`, `--datestamp` | Prepend a datestamp for reporting |
+| `-s`, `--schema` | Validate XML Schema Definition (MHL v1 only) |
+| `-v`, `--verbose` | Verbose |
+| `-h`, `--help` | Show help message |
 | `--version` | Print version |
 
 Note: `<path>` can be a single file or a directory, or the current directory if left blank.

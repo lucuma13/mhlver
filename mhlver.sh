@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # mhlver - One MHL tool to verify them all
-readonly MHLVER_VERSION="1.0"
+readonly MHLVER_VERSION="1.1"
 
 # Copyright (c) 2026 Luis Gómez Gutiérrez
 # Licensed under the MIT License
 
 # Colours used
 readonly RED='\033[0;31m'
+readonly ORANGE='\033[38;5;208m'
 readonly RESET='\033[0m'
 
 function show_help() {
@@ -16,10 +17,11 @@ function show_help() {
 	echo "Usage: mhlver [options] <path>"
 	echo 
 	echo "Options:"
-	echo "  -d : Add datestamp for report"
-	echo "  -v : Verbose"
-    echo "  -h : Show this help message"
-	echo "  --version  : Print version"
+	echo "  -d, --datestamp : Preprend datestamp for reporting"
+    echo "  -s, --schema    : Validate XML Schema Definition (MHL v1 only)"
+    echo "  -v, --verbose   : Verbose"
+    echo "  -h, --help      : Show this help message"
+	echo "  --version       : Print version"
 	exit 0
 }
 
@@ -54,45 +56,83 @@ function log_error() {
 
 function verify_item() {
     local target=$1
-    local is_ascmhl=false
-    
-    [[ "$target" == *"ascmhl"* ]] && is_ascmhl=true
+    local script_dir
+    script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-    if $is_ascmhl; then
-        # ASC-MHL usually requires the grandparent directory for context
-        local grandparent=$(dirname "$(dirname "$target")")
+    # Legacy MHL (MHL 1.0)
+    if [[ "$target" != *"/ascmhl/"* ]] && [[ "$(basename "$target")" != *"ascmhl"* ]]; then
+        local output
+        output=$(python3 "$script_dir/mhl_worker.py" "$target" 2>/dev/null)
+        local exit_code=$?
+
+        case $exit_code in
+            0)
+                log_success "MHL verified: $(basename "$target")"
+                ;;
+            10) # Non-compliant but Hashes match
+                log_success "MHL verified: $(basename "$target")"
+                if $schema_strict; then
+                    echo -e "   ${ORANGE}└─ MHL file not compliant with XML Schema Definition. ${RESET}Read more: https://mediahashlist.org/download/MediaHashList_v1_1.xsd"
+                fi
+                ;;
+            20) # Malformed / Can't even parse
+                echo -e "${RED}Malformed XML: $(basename "$target") cannot be read.${RESET}"
+                ;;
+            30) # Hash Mismatch (Valid Schema)
+                log_error "Verification failed: $(basename "$target")"
+                [[ -n "$output" ]] && echo -e "${RED}${output}${RESET}"
+                ;;
+            40) # Hash Mismatch AND Schema Error
+                log_error "Verification failed: $(basename "$target")"
+                [[ -n "$output" ]] && echo -e "${RED}${output}${RESET}"
+                if $schema_strict; then
+                    echo -e "   ${ORANGE}└─ Schema non-compliant${RESET}"
+                fi
+                ;;
+            *)
+                echo -e "${RED}System error: $exit_code for $(basename "$target")${RESET}"
+                ;;
+        esac
+    # ASC-MHL (MHL 2.0)
+    else
+        local grandparent
+        grandparent=$(dirname "$(dirname "$target")")
+        
         ascmhl-debug verify $verbose_flag "$grandparent"
         if [[ $? -eq 0 ]]; then
-            log_success "MHL verified: $(basename "$grandparent")"
+            log_success "ASC-MHL verified: $(basename "$grandparent")"
         else
             log_error "Manual verification required for $grandparent"
-        fi
-    else
-        mhl verify -f "$target"
-        if [[ $? -eq 0 ]]; then
-            log_success "MHL verified: $(basename "$target")"
-        else
-            log_error "Verification failed for $target"
         fi
     fi
 }
 
 # Long-format flags
-[[ "$1" == "--version" ]] && { echo "$MHLVER_VERSION"; exit 0; }
-[[ "$1" == "--help" ]] && show_help
-
-# Short-format flags
 datestamp=false
 verbose_flag=""
+schema_strict=false
 
-while getopts "dvh" option
+# Long-format flags
+for arg in "$@"; do
+    case "$arg" in
+        --version) echo "$MHLVER_VERSION"; exit 0 ;;
+        --help) show_help ;;
+        --schema) schema_strict=true ;;
+        --datestamp) datestamp=true ;;
+        --verbose) verbose_flag="-v" ;;
+    esac
+done
+
+# Short-format flags
+while getopts "dvsh" option
 do
-	case $option in
-		d) datestamp=true ;;
-		v) verbose_flag="-v" ;;
-		h) show_help ;;
-		*) show_help ;;
-	esac
+    case $option in
+        d) datestamp=true ;;
+        v) verbose_flag="-v" ;;
+        s) schema_strict=true ;;
+        h) show_help ;;
+        *) show_help ;;
+    esac
 done
 shift "$((OPTIND-1))"
 
