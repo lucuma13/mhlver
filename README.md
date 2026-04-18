@@ -1,6 +1,6 @@
 # mhlver
 
-`mhlver` is a streamlined CLI utility to find and verify Media Hash List files (MHL). It provides unified support for both traditional MHL and ASC-MHL 2.0, and it also features a compliance validator for XML Schema Definition (XSD) on legacy workflows.
+`mhlver` is a streamlined CLI utility to find and verify Media Hash List files (MHL). It provides unified support for both traditional MHL and ASC-MHL 2.0, and it features a compliance validator for XML Schema Definition (XSD) on legacy workflows.
 
 #### 💻 Compatibility
 
