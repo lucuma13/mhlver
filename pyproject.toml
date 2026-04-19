@@ -13,7 +13,6 @@ authors = [
     {name = "Luis Gómez Gutiérrez"}
 ]
 dependencies = [
-    "click>=8.0",
     "lxml>=4.9.0",
     "xxhash>=3.0.0",
 ]

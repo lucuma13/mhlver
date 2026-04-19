@@ -2,13 +2,13 @@
 # simple-mhl - Modern verification and sealing tool for legacy MHL files
 
 import os, sys
-import click, getpass, platform, hashlib, xxhash
+import argparse, getpass, platform, hashlib, xxhash
+from datetime import datetime, timezone
 
 try:
     from lxml import etree
 except ImportError:
     sys.exit(1)
-from datetime import datetime, timezone
 
 VERSION = "1.0"
 MHL_NS = "http://www.mediahashlist.org/v1.1"
@@ -80,39 +80,55 @@ MHL_XSD = f"""
 """
 
 # Help menu
-class SimpleMHLHelp(click.Group):
-    def format_help(self, ctx, formatter):
-        click.echo(f"simple-mhl v{VERSION}. Modern verification and sealing tool for legacy MHL files")
-        click.echo("\nUsage: simple-mhl <command> [options] <path>")
-        click.echo("\nCommands & Options:")
-        click.echo("  seal               : Seal directory (MHL file will be generated at the root)")
-        click.echo("    -a, --algorithm  : Algorithm: xxhash (default), md5, sha1, xxh128, xxh3_64")
-        click.echo("    --dont-reseal    : Abort operation if an MHL file already exists at root")
-        click.echo("  verify             : Verify an MHL file and hash values")
-        click.echo("    -s, --schema     : Validate XML against MHL v1.1 XSD")
-        click.echo("  -h, --help         : Show this help message")
-        click.echo("  --version          : Print version")
+class MHLParser(argparse.ArgumentParser):
+    def format_help(self):
+        return (f"simple-mhl v{VERSION}. Modern verification and sealing tool for legacy MHL files\n"
+                "\nUsage: simple-mhl <command> [options] <path>\n"
+                "\nCommands & Options:\n"
+                "  seal               : Seal directory (MHL file will be generated at the root)\n"
+                "    -a, --algorithm  : Algorithm: xxhash (default), md5, sha1, xxh128, xxh3_64\n"
+                "    --dont-reseal    : Abort operation if an MHL file already exists at root\n"
+                "  verify             : Verify an MHL file and hash values\n"
+                "    -s, --schema     : Validate XML against MHL v1.1 XSD\n"
+                "  -h, --help         : Show this help message\n"
+                "  --version          : Print version\n")
 
-class SealCommandHelp(click.Command):
-    def format_help(self, ctx, formatter):
-        help_text = (
-            "Usage: simple-mhl seal [options] <directory>\n\n"
-            "Options:\n"
-            "  -a, --algorithm   : Algorithm: xxhash (default), md5, sha1, xxh128, xxh3_64\n"
-            "  --dont-reseal     : Abort operation if an MHL file already exists at root\n"
-            "  -h, --help        : Show this message\n"
-        )
-        click.echo(help_text, nl=False)
+def main():
+    parser = MHLParser(add_help=False)
+    parser.add_argument("--version", action="version", version=VERSION)
+    parser.add_argument("-h", "--help", action="help")
+    
+    subparsers = parser.add_subparsers(dest="command")
+    
+    # Seal Command Parsing
+    s_parser = subparsers.add_parser("seal", add_help=False)
+    s_parser.add_argument("path")
+    s_parser.add_argument("-a", "--algorithm", default="xxhash")
+    s_parser.add_argument("--dont-reseal", action="store_true")
+    s_parser.add_argument("-h", "--help", action="store_true")
 
-class VerifyCommandHelp(click.Command):
-    def format_help(self, ctx, formatter):
-        help_text = (
-            "Usage: simple-mhl verify [options] <file.mhl>\n\n"
-            "Options:\n"
-            "  -s, --schema      : Validate XML against MHL v1.1 XSD\n"
-            "  -h, --help        : Show this message\n"
-        )
-        click.echo(help_text, nl=False)
+    # Verify Command Parsing
+    v_parser = subparsers.add_parser("verify", add_help=False)
+    v_parser.add_argument("path")
+    v_parser.add_argument("-s", "--schema", action="store_true")
+    v_parser.add_argument("-h", "--help", action="store_true")
+
+    args, unknown = parser.parse_known_args()
+
+    # Handle help routing
+    if not args.command or args.help:
+        if args.command == "seal":
+            print("Usage: simple-mhl seal [options] <directory>\n\nOptions:\n  -a, --algorithm   : Algorithm: xxhash (default), md5, sha1, xxh128, xxh3_64\n  --dont-reseal     : Abort operation if an MHL file already exists at root\n  -h, --help        : Show this message")
+        elif args.command == "verify":
+            print("Usage: simple-mhl verify [options] <file.mhl>\n\nOptions:\n  -s, --schema      : Validate XML against MHL v1.1 XSD\n  -h, --help        : Show this message")
+        else:
+            print(parser.format_help())
+        return
+
+    if args.command == "seal":
+        seal(args.path, args.algorithm, args.dont_reseal)
+    elif args.command == "verify":
+        verify(args.path, args.schema)
 
 # Define hash algorithms
 def get_hash(filepath, algo_key):
@@ -127,22 +143,13 @@ def get_hash(filepath, algo_key):
     if algo_key not in mapping:
         raise ValueError(f"Unsupported hash algorithm: {algo_key}")
 
-    # Instantiate the hasher and reads the file in 64KB chunks to maintain a low memory footprint.
+    # Instantiate the hasher and read the file in 64KB chunks (to maintain a low memory footprint)
     hasher = mapping[algo_key]()
     with open(filepath, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""): hasher.update(chunk)
     return hasher.hexdigest()
 
-# CLI Group Definition
-@click.group(cls=SimpleMHLHelp, context_settings={'help_option_names': ['-h', '--help']})
-@click.version_option(VERSION, '--version')
-def cli(): pass
-
 # ------------ Seal command ------------
-@cli.command(cls=SealCommandHelp)
-@click.argument('root', type=click.Path(exists=True))
-@click.option('--algorithm', '-a', default='xxhash')
-@click.option('--dont-reseal', is_flag=True)
 def seal(root, algorithm, dont_reseal):
     # Resolve absolute path
     root = os.path.abspath(root)
@@ -172,21 +179,20 @@ def seal(root, algorithm, dont_reseal):
     xml_tag = 'xxhash64be' if algorithm in ['xxhash', 'xxh64'] else algorithm.replace('xxh', 'xxhash')
 
     # Construct hash entries, ignoring hidden files
-    for dirpath, dirnames, filenames in os.walk(root):
-        # Modify dirnames in-place to skip hidden directories.
+    for dirpath, dirnames, filenames in os.walk(root, topdown=True):
         dirnames[:] = sorted([d for d in dirnames if not d.startswith('.')])
         
-        for filename in sorted(filenames):
-            if filename.startswith('.'): 
-                continue
+        with os.scandir(dirpath) as it:
+            entries = {e.name: e for e in it if not e.name.startswith('.') and e.is_file()}
             
-            filepath = os.path.join(dirpath, filename)
+        for filename in sorted(entries.keys()):
+            entry = entries[filename]
+            filepath = entry.path
             
             # Calculate relative path for the XML manifest
             rel_path = os.path.relpath(filepath, root)
             
-            # Get file statistics
-            stat_result = os.stat(filepath)
+            stat_result = entry.stat()
             
             h_el = etree.SubElement(doc, f"{{{MHL_NS}}}hash")
             etree.SubElement(h_el, f"{{{MHL_NS}}}file").text = rel_path.replace('\\', '/')
@@ -196,15 +202,17 @@ def seal(root, algorithm, dont_reseal):
             etree.SubElement(h_el, f"{{{MHL_NS}}}{xml_tag}").text = get_hash(filepath, algorithm)
             etree.SubElement(h_el, f"{{{MHL_NS}}}hashdate").text = now_iso
             
+    # Capture and update the finishdate after the os.walk loop completes
+    finish_iso = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    info.find(f"{{{MHL_NS}}}finishdate").text = finish_iso
+            
     # Serialise the constructed XML tree to disk with formatting
     etree.ElementTree(doc).write(mhl_path, xml_declaration=True, encoding='UTF-8', pretty_print=True)
 
 # ------------ Verify command ------------
-@cli.command(cls=VerifyCommandHelp)
-@click.argument('mhl_file', type=click.Path(exists=True))
-@click.option('--schema', '-s', is_flag=True)
 def verify(mhl_file, schema):
     errors, schema_ok = [], True
+    mhl_dir = os.path.abspath(os.path.dirname(mhl_file))
     try:
         # Parse the MHL file into a tree and conditionally evaluates it against the  XSD
         tree = etree.parse(mhl_file)
@@ -224,6 +232,12 @@ def verify(mhl_file, schema):
             if not fname_list: continue
             fname = fname_list[0]
             
+            # Use absolute path resolution and block directory traversal
+            fpath = os.path.abspath(os.path.join(mhl_dir, fname))
+            if not fpath.startswith(mhl_dir):
+                errors.append(f"Security: Blocked traversal attempt for {fname}")
+                continue
+
             # Scan for supported hash algorithm tags
             h_nodes = h.xpath(".//*[local-name()='md5' or local-name()='sha1' or local-name()='xxhash' or local-name()='xxhash64' or local-name()='xxhash64be' or local-name()='xxhash128' or local-name()='xxhash3_64' or local-name()='null']")
             if not h_nodes:
@@ -234,7 +248,6 @@ def verify(mhl_file, schema):
             h_node = h_nodes[0]
             tag = h_node.tag.split('}')[-1] if '}' in h_node.tag else h_node.tag
             expected = h_node.text
-            fpath = os.path.join(os.path.dirname(mhl_file), fname)
             
             # Compare hashes (verify physical existence on disk first)
             if not os.path.exists(fpath):
@@ -252,7 +265,7 @@ def verify(mhl_file, schema):
 
         # Exit with specific error codes
         if errors:
-            click.echo("\n".join(errors))
+            print("\n".join(errors))
             sys.exit(40 if not schema_ok and not [e for e in errors if "Missing" not in e] else 30)
         
         sys.exit(10 if not schema_ok else 0)
@@ -261,7 +274,6 @@ def verify(mhl_file, schema):
         sys.stderr.write(f"Verification Error: '{str(e)}'\n")
         raise
 
-
 # Boilerplate: direct execution only
 if __name__ == "__main__":
-    cli()
+    main()

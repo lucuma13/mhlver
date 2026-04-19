@@ -10,7 +10,6 @@
 * [Python](https://docs.python.org/3/license.html) 3.9+ © 2001-2026 Python Software Foundation (PSF)
 * [python-xxhash](https://github.com/ifduyue/python-xxhash) © 2014-2026 Yue Du (BSD-2-Clause)
 * [lxml](https://lxml.de/) © 2004-2026 Stefan Behnel, et al. (BSD-3-Clause)
-* [click](https://palletsprojects.com/projects/click/) © 2014-2026 Armin Ronacher (BSD-3-Clause)
 * [ASC-MHL](https://pypi.org/project/ascmhl/) 1.2 © 2022-2026 Academy of Motion Picture Arts and Sciences (MIT)
 
 ### 🚀 Installation
