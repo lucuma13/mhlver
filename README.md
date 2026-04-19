@@ -31,9 +31,9 @@ brew install mhl-suite
 ##### Windows
 1. Download and install [Python 3.9+](https://www.python.org/downloads/windows/). Ensure "Add Python to PATH" is checked during installation.
 
-2. Install mhl-suite: Open PowerShell or Command Prompt and run:
+2. Install mhl-suite:
 
-```PowerShell
+```
 pip install mhl-suite
 ```
 
