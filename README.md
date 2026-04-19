@@ -4,7 +4,7 @@
 * `mhlver`: one tool to verify them all. This is a wrapper that automatically detects MHL versions (legacy and ASC-MHL) and manages recursive directory verification and reporting. It delegates verification to `simple-mhl` for legacy files and `ascmhl` for modern manifests.
 * `simple-mhl`: a modern verification and sealing tool, for legacy MHL files. A successor of the discontinued [mhl-tool](https://github.com/pomfort/mhl-tool), it additionally features a compliance validator for XML Schema Definition (XSD), and it supports modern algorithms traditionally only available on MHL 2.0 (xxh3-64 and xxh128).
 
-#### 🛠️ Dependencies
+### 🛠️ Dependencies
 
 `mhlver` integrates the following open-source components:
 * [Python](https://docs.python.org/3/license.html) 3.9+ © 2001-2026 Python Software Foundation (PSF)
@@ -13,9 +13,9 @@
 * [click](https://palletsprojects.com/projects/click/) © 2014-2026 Armin Ronacher (BSD-3-Clause)
 * [ASC-MHL](https://pypi.org/project/ascmhl/) 1.2 © 2022-2026 Academy of Motion Picture Arts and Sciences (MIT)
 
-#### 🚀 Installation
+### 🚀 Installation
 
-##### macOS and Linux
+#### macOS and Linux
 
 1. Install [Homebrew](https://brew.sh/) (if not already installed):
 ```
@@ -28,16 +28,18 @@ brew tap lucuma13/dit
 brew install mhl-suite
 ```
 
-##### Windows
+#### Windows
 1. Download and install [Python 3.9+](https://www.python.org/downloads/windows/). Ensure "Add Python to PATH" is checked during installation.
 
-2. Install mhl-suite:
+2. Install toolkit:
 
 ```
 pip install mhl-suite
 ```
 
-#### 📖 Usage `mhlver`
+### 📖 Usage
+
+##### `mhlver`
 
 ```
 mhlver [options] <path>
@@ -53,7 +55,7 @@ Options:
 Note: `<path>` can be a single file or a directory, or the current directory if left blank.
 
 
-#### 📖 Usage `simple-mhl`
+##### `simple-mhl`
 
 ```
 simple-mhl <command> [options] <path>
