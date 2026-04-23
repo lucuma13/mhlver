@@ -17,15 +17,7 @@
 #### Cross-platform (Recommended)
 1. Download and install [Python 3.10+](https://www.python.org/downloads).
 
-2. Install `uv` package manager
-* macOS / Linux
-```
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-* Windows
-```
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
+2. Follow instructions to install [uv](https://github.com/astral-sh/uv) package manager, or `brew install uv` if you're on macOS / Linux.
 
 3. Install toolkit:
 
