@@ -2,7 +2,7 @@
 
 `mhl-suite` is an essential toolkit for sealing and verifying MHL files. It consists of two primary executables:
 * `mhlver`: one tool to verify them all. This is a wrapper that automatically detects MHL versions (legacy and ASC-MHL) and manages recursive directory verification and reporting. It delegates verification to `simple-mhl` for legacy files and [ascmhl](https://github.com/ascmitc/mhl) for modern manifests.
-* `simple-mhl`: a modern verification and sealing tool, for legacy MHL files. A successor of the discontinued [mhl-tool](https://github.com/pomfort/mhl-tool), it additionally features a compliance validator for XML Schema Definition (XSD), and supports modern algorithms traditionally only available on MHL 2.0 (xxh3-64 and xxh128).
+* `simple-mhl`: a modern verification and sealing tool, for legacy MHL files. A successor of the discontinued [mhl-tool](https://github.com/pomfort/mhl-tool), it fully supports xxhash64 (both seal and verify), and it features a compliance validator for the XML Schema Definition (XSD) as well as cleaner logs.
 
 ### 🛠️ Dependencies
 
@@ -14,7 +14,26 @@
 
 ### 🚀 Installation
 
-#### macOS and Linux
+#### Cross-platform (Recommended)
+1. Download and install [Python 3.10+](https://www.python.org/downloads).
+
+2. Install `uv` package manager
+* macOS / Linux
+```
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+* Windows
+```
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+3. Install toolkit:
+
+```
+uv tool install mhl-suite
+```
+
+#### macOS and Linux (Homebrew)
 
 1. Install [Homebrew](https://brew.sh/) (if not already installed):
 ```
@@ -27,14 +46,6 @@ brew tap lucuma13/dit
 brew install mhl-suite
 ```
 
-#### Windows
-1. Download and install [Python 3.9+](https://www.python.org/downloads/windows/). Ensure "Add Python to PATH" is checked during installation.
-
-2. Install toolkit:
-
-```
-pip install mhl-suite
-```
 
 ### 📖 Usage
 
@@ -44,11 +55,11 @@ pip install mhl-suite
 mhlver [options] <path>
 
 Options:
-  -d, --datestamp   : Preprend datestamp for reporting
-  -s, --schema      : Validate XML Schema Definition (MHL v1 only)
-  -v, --verbose     : Verbose
-  -h, --help        : Show this help message
-  --version         : Print version
+  -d, --datestamp        : Prepend datestamp for reporting
+  -s, --xsd-schema-check : Validate XML Schema Definition
+  -v, --verbose          : Verbose
+  -h, --help             : Show this help message
+  --version              : Print version
 ```
 
 Note: `<path>` can be a single file or a directory, or the current directory if left blank.
@@ -64,7 +75,7 @@ Commands / Options:
     -a, --algorithm : Algorithm: xxhash (default), md5, sha1, xxh128, xxh3_64
     --dont-reseal   : Abort operation if an MHL file already exists at root
   verify            : Verify an MHL file and hash values
-    -s, --schema    : Validate XML against MHL v1.1 XSD
+  xsd-schema-check  : Validate XML Schema Definition
   -h, --help        : Show this help message
   --version         : Print version
 ```

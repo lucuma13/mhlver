@@ -1,22 +1,37 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "mhl-suite"
 version = "1.1.0"
 description = "Simple MHL verification and sealing tools"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Luis Gómez Gutiérrez"}
 ]
 dependencies = [
+    "ascmhl>=1.2.0",
     "lxml>=4.9.0",
     "xxhash>=3.0.0",
 ]
 
+# Format: command-name = "package.module:function"
 [project.scripts]
-simple-mhl = "simple_mhl:cli"
-mhlver = "mhlver:main"
+simple-mhl = "mhl_suite.simple_mhl:main"
+mhlver = "mhl_suite.mhlver:main"
+
+# This ensures only the source code and XSDs are bundled
+[tool.hatch.build.targets.wheel]
+packages = ["src/mhl_suite"]
+
+# This ensures the XSD is included in the source distribution
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/mhl_suite/xsd/*.xsd",
+]
+
+[tool.uv]
+managed = true
