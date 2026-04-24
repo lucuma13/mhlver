@@ -11,15 +11,19 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-MHLVER_VERSION = "1.1.2"
+MHLVER_VERSION = "1.1.3"
 
-# Colours used
-RED = '\033[0;31m'
-ORANGE = '\033[38;5;208m'
-RESET = '\033[0m'
+# Colours used (suppressed when output is not a terminal)
+if sys.stdout.isatty():
+    RED = '\033[0;31m'
+    ORANGE = '\033[38;5;208m'
+    RESET = '\033[0m'
+else:
+    RED = ORANGE = RESET = ''
 
-# Print standard help message
+
 def show_help():
+    """Print standard help message."""
     print(f"mhlver v{MHLVER_VERSION}. Find and verify source MHL files or directories\n")
     print("Usage: mhlver [options] <path>\n")
     print("Options:")
@@ -30,41 +34,40 @@ def show_help():
     print("  --version              : Print version")
     sys.exit(0)
 
-# Log successful verifications
+
 def log_success(msg: str, datestamp: bool):
+    """Log successful verifications."""
     if datestamp:
-        print(f"[{datetime.now().strftime('%Y.%m.%d-%H:%M:%S')}] ✅ {msg}")
+        print(f"[{datetime.now().strftime('%Y.%m.%d-%H:%M:%S')}] {msg}")
     else:
-        print(f"✅ {msg}")
+        print(f"{msg}")
 
-# Log error states
+
 def log_error(msg: str, datestamp: bool):
+    """Log error states."""
     if datestamp:
-        print(f"{RED}[{datetime.now().strftime('%Y.%m.%d-%H:%M:%S')}] ❌ {msg}{RESET}", file=sys.stderr)
+        print(f"{RED}[{datetime.now().strftime('%Y.%m.%d-%H:%M:%S')}] {msg}{RESET}", file=sys.stderr)
     else:
-        print(f"{RED}❌ {msg}{RESET}", file=sys.stderr)
+        print(f"{RED}{msg}{RESET}", file=sys.stderr)
 
-# Find commands in the same venv as the script, falling back to the system PATH
+
 def get_command_path(cmd_name):
-    # Search the bin directory of the current virtual environment/prefix
+    """Find a command in the active venv's bin, falling back to the system PATH."""
     venv_bin = Path(sys.prefix) / ("Scripts" if sys.platform == "win32" else "bin")
     cmd_path = venv_bin / cmd_name
-    
     if cmd_path.exists():
         return str(cmd_path)
-    
-    # Fallback to system PATH (e.g. if direnv is active or tool is global)
     return shutil.which(cmd_name)
 
-# Verify single MHL or ASC-MHL target
 def verify_item(target: Path, datestamp: bool, verbose: bool, schema: bool) -> int:
+    """Verify a single MHL or ASC-MHL target, returning an exit code."""
     target_str = str(target)
     target_name = target.name
 
-    # Determine if ASC-MHL based on path presence
-    is_ascmhl = "ascmhl" in target.parts or target_name.find("ascmhl") != -1
+    # Determine if ASC-MHL by checking whether any path component is exactly "ascmhl"
+    is_ascmhl = "ascmhl" in target.parts
 
-    # Legacy MHL (MHL 1.0)
+    # --- Legacy MHL (MHL 1.0) ---
     if not is_ascmhl:
         cmd = ["simple-mhl", "xsd-schema-check" if schema else "verify", target_str]
         try:
@@ -72,70 +75,98 @@ def verify_item(target: Path, datestamp: bool, verbose: bool, schema: bool) -> i
             exit_code = result.returncode
 
             if exit_code == 0:
-                log_success(f"MHL verified: {target_name}", datestamp)
+                log_success(f"{'✅ MHL verified' if not schema else '📝 MHL schema valid'}: {target_name}", datestamp)
             elif exit_code == 10:
-                log_error(f"Schema non-compliant: {target_name}", datestamp)
+                log_error(f"⚠️ Schema non-compliant: {target_name}", datestamp)
             elif exit_code == 20:
                 print(f"🚨 {ORANGE}Malformed XML: {target_name} cannot be read.{RESET}")
             elif exit_code in [30, 40]:
-                 log_error(f"Verification failed: {target_name}", datestamp)
-                 print(f"{RED}{result.stdout.strip()}{RESET}")
+                log_error(f"❌ Verification failed: {target_name}", datestamp)
+                print(f"{RED}{result.stdout.strip()}{RESET}")
             else:
                 print(f"🚨 {ORANGE}System error: {exit_code} for {target_name}{RESET}")
-                
+
             return exit_code
 
         except FileNotFoundError:
             print(f"🚨 {ORANGE}System error: 'simple-mhl' command not found. Ensure it is in your PATH.{RESET}")
             return 127
 
-    # ASC-MHL (MHL 2.0)
+    # --- ASC-MHL (MHL 2.0) ---
     else:
         # Resolve the mhl-suite directory containing the XSD folder
         suite_dir = Path(__file__).resolve().parent
 
-        # Look for ascmhl-debug specifically as it contains the verification logic
         cmd_path = get_command_path("ascmhl-debug")
-    
         if not cmd_path:
-            print("🚨 System error: 'ascmhl-debug' command not found. Ensure it is in your PATH.")
+            print(f"🚨 {ORANGE}System error: 'ascmhl-debug' command not found. Ensure it is in your PATH.{RESET}")
             return 127
 
+        grandparent = target.parent.parent
 
         if schema:
             cmd = [cmd_path, "xsd-schema-check", target_str]
         else:
-            grandparent = target.parent.parent
             cmd = [cmd_path, "verify"]
             if verbose:
                 cmd.append("-v")
             cmd.append(str(grandparent))
-            
+
+        cwd = suite_dir if suite_dir.exists() else None
+        if not cwd:
+            log_error("suite_dir does not exist; ascmhl-debug may not find its XSD files.", datestamp)
+
         try:
-            # Execute with cwd set to suite_dir so ascmhl finds the xsd folder
-            result = subprocess.run(cmd, cwd=suite_dir if suite_dir.exists() else None)
-            if result.returncode == 0:
-                log_success(f"ASC-MHL {'schema valid' if schema else 'verified'}: {target_name}", datestamp)
+            if schema:
+                # Check the .mhl manifest file against the manifest schema
+                result_mhl = subprocess.run(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                mhl_code = result_mhl.returncode
+
+                # Check the ascmhl_chain.xml against the directory schema
+                chain_file = target.parent / "ascmhl_chain.xml"
+                result_chain = subprocess.run(
+                    [cmd_path, "xsd-schema-check", "--directory_file", str(chain_file)],
+                    cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                )
+                chain_code = result_chain.returncode
+
+                if mhl_code == 0:
+                    log_success(f"📝 ASC-MHL manifest schema valid: {target}", datestamp)
+                elif mhl_code == 11:
+                    log_error(f"⚠️ ASC-MHL schema non-compliant: {target}", datestamp)
+                else:
+                    print(f"🚨 {ORANGE}Unexpected error: {mhl_code} for {target}{RESET}")
+                
+                if chain_code == 0:
+                    log_success(f"📝 ASC-MHL directory schema valid: {chain_file}", datestamp)
+                elif chain_code == 11:
+                    log_error(f"⚠️ ASC-MHL schema non-compliant: {chain_file}", datestamp)
+                else:
+                    print(f"🚨 {ORANGE}Unexpected error: {chain_code} for {chain_file}{RESET}")
+                
+                return mhl_code if mhl_code != 0 else chain_code
             else:
-                log_error(f"Manual verification required for {grandparent}", datestamp)
-            return result.returncode
+                result = subprocess.run(cmd, cwd=cwd)
+                if result.returncode == 0:
+                    log_success(f"✅ ASC-MHL verified: {target_name}", datestamp)
+                else:
+                    log_error(f"❌ Manual verification required for {grandparent}", datestamp)
+                return result.returncode
         except FileNotFoundError:
             print(f"🚨 {ORANGE}System error: 'ascmhl-debug' command not found. Ensure it is in your PATH.{RESET}")
             return 127
 
+
 def find_mhl_files(root: Path):
-    #Yield MHL files while skipping macOS resource forks
+    """Yield MHL files recursively, skipping macOS resource forks."""
     for p in root.rglob("*.[mM][hH][lL]"):
         if not p.name.startswith("._"):
             yield p
 
+
 def main():
     parser = argparse.ArgumentParser(add_help=False)
-    # ... (rest of your existing argparse code)
-    # -----------------------------
-    parser = argparse.ArgumentParser(add_help=False)
-    
-    # Flag definitions
+
     parser.add_argument("-d", "--datestamp", action="store_true")
     parser.add_argument("-s", "--xsd-schema-check", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -152,32 +183,30 @@ def main():
     if args.help:
         show_help()
 
-    # Resolve source (Default to current directory)
+    # Resolve source (defaults to current directory)
     src = Path(args.path).resolve()
 
     if not src.exists():
         log_error("Argument should be a file or directory that exists in the filesystem", args.datestamp)
         sys.exit(2)
 
-    # Initialise the default exit status
     exit_status = 0
 
-    # --- Execution ---
     if src.is_file():
         exit_status = verify_item(src, args.datestamp, args.verbose, args.xsd_schema_check)
-        
+
     elif src.is_dir():
         lastgrandparent = None
 
-        # Recursively iterate through files, filter macOS resource forks, and sort results.
+        # Recursively iterate, filter macOS resource forks, and sort results
         mhl_files = sorted(find_mhl_files(src))
 
         for f in mhl_files:
             parent = f.parent
             grandparent = parent.parent
 
-            # ASC-MHL redundancy check if multiple .mhl files exist in same ascmhl folder
-            if parent.name.endswith("ascmhl"):
+            # ASC-MHL redundancy check: skip duplicate entries for the same ascmhl folder
+            if parent.name == "ascmhl":
                 if grandparent == lastgrandparent:
                     continue
                 lastgrandparent = grandparent
@@ -185,8 +214,9 @@ def main():
             if args.datestamp:
                 print('---')
 
-            # Capture the result and update exit_status if it's the first error
             current_code = verify_item(f, args.datestamp, args.verbose, args.xsd_schema_check)
+
+            # Preserve the first non-zero exit code encountered
             if exit_status == 0:
                 exit_status = current_code
 
